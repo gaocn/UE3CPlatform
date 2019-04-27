@@ -39,4 +39,8 @@ public class DAOFactory {
 	public static IPageConvertRateDAO getPageConvertRateDAO() {
 		return new PageConvertRateDAOImpl();
 	}
+
+	public static IAreaTop3ProductDAO getAreaTop3ProductDAO() {
+		return new AreaTop3ProductDAOImpl();
+	}
  }

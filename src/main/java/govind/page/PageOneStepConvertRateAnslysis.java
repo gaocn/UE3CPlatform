@@ -1,4 +1,4 @@
-package govind.session.page;
+package govind.page;
 
 import com.alibaba.fastjson.JSONObject;
 import govind.constant.Constants;
@@ -20,7 +20,6 @@ import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.broadcast.Broadcast;
-import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SQLContext;
 import scala.Tuple2;
@@ -91,6 +90,7 @@ public class PageOneStepConvertRateAnslysis {
 		//7. 存储页面转化率到MySQL数据库中
 		//页面流中各个页面切片的转化率，以特定格式拼接起来，例如3,5=10%|5,7=20%
 		persistConvertRate(taskid, convertRateMap);
+		sc.close();
 	}
 
 	private static Map<String, Double> computeConvertRate(JSONObject taskParam, Map<String, Object> pageSplitPVMap, long startPagePV) {

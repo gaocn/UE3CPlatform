@@ -24,11 +24,13 @@ public class Constants {
 	 */
 	public static String SPARK_APP_NAME_SESSION = "UserVisitSessionAnalysis";
 	public static String SPARK_APP_NAME_PAGE = "PageOneStepConvertRateAnalysis";
+	public static String SPARK_APP_NAME_PRODUCT = "AreaTop3ProductAnalysis";
 
 	//运行模式：本地还是生产环境
 	public static String SPARK_LOCAL = "spark.local";
 	public static String SPARK_LOCAL_TASKID_SESSION = "spark.local.taskid.session";
 	public static String SPARK_LOCAL_TASKID_PAGE = "spark.local.taskid.page";
+	public static String SPARK_LOCAL_TASKID_PRODUCT = "spark.local.taskid.product";
 
 
 	public static String FIELD_SESSION_ID = "sessionid";

@@ -37,7 +37,7 @@ CREATE TABLE `session_random_extract`
   `search_keywords` VARCHAR(255) DEFAULT NULL,
   `click_category_ids` VARCHAR(255)  DEFAULT NULL
 ) ENGINE = InnoDB
-  DEFAULT CHARSET = gbk;
+  DEFAULT CHARSET = utf8;
 
 -- 存储按照点击、下单和支付排序出来的top10品类数据
 CREATE TABLE `top10_category`
@@ -104,3 +104,35 @@ CREATE TABLE `page_convert_rate`
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8;
 
+CREATE TABLE `city_info`
+(
+  `city_id` INT(11) AUTO_INCREMENT,
+  `city_name` VARCHAR(30) DEFAULT NULL,
+  `area` VARCHAR(30) DEFAULT NULL,
+  PRIMARY KEY(city_id)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8;
+INSERT INTO city_info values (null, '北京','华北');
+INSERT INTO city_info values (null, '上海','华东');
+INSERT INTO city_info values (null, '南京','华东');
+INSERT INTO city_info values (null, '广州','华南');
+INSERT INTO city_info values (null, '三亚','华南');
+INSERT INTO city_info values (null, '武汉','华中');
+INSERT INTO city_info values (null, '长沙','华中');
+INSERT INTO city_info values (null, '西安','西北');
+INSERT INTO city_info values (null, '成都','西南');
+INSERT INTO city_info values (null, '哈尔滨','东北');
+
+# 各个区域热门品类Top3
+CREATE TABLE `area_top3_product`
+(
+  `task_id`     INT(11) NOT NULL ,
+  `area`   VARCHAR(255) DEFAULT NULL,
+  `area_level`   VARCHAR(255) DEFAULT NULL,
+  `product_id`   int(11) DEFAULT NULL,
+  `city_names`   VARCHAR(255) DEFAULT NULL,
+  `click_count`   int(11) DEFAULT NULL,
+  `product_name`   VARCHAR(255) DEFAULT NULL,
+  `product_status`   VARCHAR(255) DEFAULT NULL
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8;

@@ -25,6 +25,7 @@ import java.util.UUID;
 public class MockData {
 	/**
 	 * 模拟数据
+	 *
 	 * @param sc
 	 * @param hiveContext
 	 */
@@ -43,7 +44,7 @@ public class MockData {
 				String baseActionTime = date + " " + StringUtils.fillWithZero(String.valueOf(rand.nextInt(23)));
 				for (int k = 0; k < rand.nextInt(100); k++) {
 					long pageId = rand.nextInt(10);
-					String actionTime = baseActionTime + ":" + StringUtils.fillWithZero(String.valueOf(rand.nextInt(59)))+ ":" + StringUtils.fillWithZero(String.valueOf(rand.nextInt(59)));
+					String actionTime = baseActionTime + ":" + StringUtils.fillWithZero(String.valueOf(rand.nextInt(59))) + ":" + StringUtils.fillWithZero(String.valueOf(rand.nextInt(59)));
 					String searchKeyword = null;
 					Long clickCategoryId = null;
 					Long clickProductId = null;
@@ -55,7 +56,7 @@ public class MockData {
 					String action = actions[rand.nextInt(actions.length)];
 					if ("search".equals(action)) {
 						searchKeyword = searchKeywords[rand.nextInt(searchKeywords.length)];
-					} else if("click".equals(action)) {
+					} else if ("click".equals(action)) {
 						clickCategoryId = Long.valueOf(String.valueOf(rand.nextInt(100)));
 						clickProductId = Long.valueOf(String.valueOf(rand.nextInt(100)));
 					} else if ("order".equals(action)) {
@@ -66,8 +67,9 @@ public class MockData {
 						payProductIds = String.valueOf(rand.nextInt(100));
 					}
 
-					Row row = RowFactory.create(date, userid, sessionId, pageId, actionTime, searchKeyword, clickCategoryId,
-							clickProductId, orderCategoryIds, orderProductIds, payCategoryIds, payProductIds);
+					Row row = RowFactory.create(date, userid, sessionId, pageId, actionTime, searchKeyword,
+							clickCategoryId, clickProductId, orderCategoryIds, orderProductIds, payCategoryIds,
+							payProductIds, (long) rand.nextInt(10));
 					rows.add(row);
 				}
 			}
@@ -75,7 +77,7 @@ public class MockData {
 		JavaRDD<Row> rowsRDD = sc.parallelize(rows);
 
 		StructType schema = DataTypes.createStructType(Arrays.asList(
-				DataTypes.createStructField("date", DataTypes.StringType, true),
+				DataTypes.createStructField("action_time", DataTypes.StringType, true),
 				DataTypes.createStructField("user_id", DataTypes.LongType, true),
 				DataTypes.createStructField("session_id", DataTypes.StringType, true),
 				DataTypes.createStructField("page_id", DataTypes.LongType, true),
@@ -86,13 +88,12 @@ public class MockData {
 				DataTypes.createStructField("order_category_id", DataTypes.StringType, true),
 				DataTypes.createStructField("order_product_id", DataTypes.StringType, true),
 				DataTypes.createStructField("pay_category_id", DataTypes.StringType, true),
-				DataTypes.createStructField("pay_product_id", DataTypes.StringType, true)
+				DataTypes.createStructField("pay_product_id", DataTypes.StringType, true),
+				DataTypes.createStructField("city_id", DataTypes.LongType, true)
 		));
 		DataFrame df = hiveContext.createDataFrame(rowsRDD, schema);
 		df.registerTempTable("user_visit_action");
-		for (Row row:df.take(1)) {
-			log.info("{}", row);
-		}
+		df.show();
 
 		//用户基础信息表
 		rows.clear();
@@ -123,9 +124,32 @@ public class MockData {
 		));
 
 		DataFrame userDF = hiveContext.createDataFrame(userRDD, userType);
-		for (Row row:userDF.take(1)) {
+		for (Row row : userDF.take(1)) {
 			log.info("{}", row);
 		}
 		userDF.registerTempTable("user_info");
+
+		//生成product_info表
+		rows.clear();
+		int[] productStatus = new int[]{0, 1};
+		for (int i = 0; i < 100; i++) {
+			long productId = i;
+			String productName = "product" + i;
+			String extendInfo = "{\"product_status\":" + productStatus[rand.nextInt(2)] + "}";
+			Row row = RowFactory.create(productId, productName, extendInfo);
+			rows.add(row);
+		}
+		rowsRDD = sc.parallelize(rows);
+		StructType productType = DataTypes.createStructType(Arrays.asList(
+				DataTypes.createStructField("product_id", DataTypes.LongType, true),
+				DataTypes.createStructField("product_name", DataTypes.StringType, true),
+				DataTypes.createStructField("extend_info", DataTypes.StringType, true)
+		));
+
+		DataFrame productDF = hiveContext.createDataFrame(rowsRDD, productType);
+		for(Row _row : productDF.take(3)) {
+			System.out.println(_row);
+		}
+		productDF.registerTempTable("product_info");
 	}
 }

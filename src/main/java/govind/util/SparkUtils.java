@@ -61,7 +61,7 @@ public class SparkUtils {
 		String startDate = ParamUtils.getParam(taskParam, Constants.PARAM_START_DATE);
 		String endDate = ParamUtils.getParam(taskParam, Constants.PARAM_END_DATE);
 		String sql = "select * from user_visit_action " +
-				"where date >='" + startDate + "' and date <= '" + endDate + "'";
+				"where action_time >='" + startDate + "' and action_time <= '" + endDate + "'";
 		DataFrame actionDF = sqlContext.sql(sql);
 		/**
 		 * SparkSQL默认并行度是根据HDFS文件的block数量确定分区数量，为防止
