@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.spark.Accumulator;
 import org.apache.spark.SparkConf;
+import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -21,6 +22,7 @@ import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SQLContext;
+import org.apache.spark.sql.catalyst.expressions.Rand;
 import org.apache.spark.sql.hive.HiveContext;
 import com.alibaba.fastjson.*;
 import org.apache.spark.storage.StorageLevel;
@@ -38,28 +40,30 @@ public class UserVisitSessionAnalysis {
 		//1、构建Spark上下文
 		SparkConf conf = new SparkConf()
 				.setAppName(Constants.SPARK_APP_NAME_SESSION)
-				.set("spark.serializer","org.apache.spark.serializer.KyroSerializer")
+				.set("spark.serializer", "org.apache.spark.serializer.KyroSerializer")
+				.set("spark.shuffle.io.maxRetries", "60")
+				.set("spark.shuffle.io.retryWait", "60")
 				.registerKryoClasses(new Class[]{
 						//获取Top10热门品类时的自定义二次排序，在shuffle时需要网络传输，
 						// 因此启用Kyro序列化机制后，为了优化性能需要进行注册
 						CategorySortKey.class,
 						IntList.class
-				})
-				.setMaster("local");
+				});
+		SparkUtils.setMaster(conf);
 
 		//2、构建上下文
 		JavaSparkContext sc = new JavaSparkContext(conf);
-		SQLContext sqlContext = getSQLContext(sc);
+		SQLContext sqlContext = SparkUtils.getSQLContext(sc);
 
 		//3、生成模拟数据
-		mockData(sc, sqlContext);
+		SparkUtils.mockData(sc, sqlContext);
 
 		/**
 		 * 若要根据用户在创建任务时指定的参数来进行数据过滤和筛选，就得查询
 		 * 指定的任务。
 		 */
 		//获取要执行任务的id
-		Long taskid = ParamUtils.getTaskIdFromArgs(args);
+		Long taskid = ParamUtils.getTaskIdFromArgs(args, Constants.SPARK_LOCAL_TASKID_SESSION);
 		//根据taskid获取任务信息及任务参数
 		ITaskDAO taskDAO = DAOFactory.getTaskDAO();
 		Task task = taskDAO.findById(taskid);
@@ -74,16 +78,16 @@ public class UserVisitSessionAnalysis {
 		 * 2、在session聚合环节里面也用到的actionRDD
 		 *
 		 */
-		JavaRDD<Row> actionRDD = getActionRDDByDateRange(sqlContext, taskParam);
+		JavaRDD<Row> actionRDD = SparkUtils.getActionRDDByDateRange(sqlContext, taskParam);
 		JavaPairRDD<String, Row> sessionId2ActionRDD = getSessionid2ActionRdd(actionRDD);
 		//被使用多次，因此持久化，默认存放内存
-		sessionId2ActionRDD.persist(StorageLevel.MEMORY_ONLY());
+		sessionId2ActionRDD = sessionId2ActionRDD.persist(StorageLevel.MEMORY_ONLY());
 		/**
 		 * 将行为数据根据session_id进行groupBy分组，此时的粒度就是session
 		 * 粒度，然后将session粒度数据与用户信息JOIN就可以获取session+user
 		 * 粒度的信息，才能进行后续的过滤
 		 */
-		JavaPairRDD<String, String> sessionid2AggrInfoRDD = aggregateBySessionId(sessionId2ActionRDD, sqlContext);
+		JavaPairRDD<String, String> sessionid2AggrInfoRDD = aggregateBySessionId(sc, sessionId2ActionRDD, sqlContext);
 
 		//System.out.println(sessionid2AggrInfoRDD.count());
 		//sessionid2AggrInfoRDD.take(10).forEach(System.out::println);
@@ -167,57 +171,13 @@ public class UserVisitSessionAnalysis {
 		sc.close();
 	}
 
-
-	/**
-	 * 获取SQLContext，如果是本地测试环境就生成SQLContext对象，若是在生产
-	 * 环境运行的话就生成HiveContext对象。
-	 *
-	 * @param sc
-	 * @return
-	 */
-	private static SQLContext getSQLContext(JavaSparkContext sc) {
-		boolean isLocal = ConfigurationManager.getBoolean(Constants.SPARK_LOCAL);
-		if (isLocal) {
-			return new SQLContext(sc);
-		} else {
-			//生产上从Hive中查询数据
-			return new HiveContext(sc);
-		}
-	}
-
-	/**
-	 * 只有是本地模式时才会使用模拟生成的临时表
-	 */
-	private static void mockData(JavaSparkContext sc, SQLContext sqlContext) {
-		boolean isLocal = ConfigurationManager.getBoolean(Constants.SPARK_LOCAL);
-		if (isLocal) {
-			MockData.simulateHiveTable(sc, sqlContext);
-		}
-	}
-
-	/**
-	 * 获取指定日期范围内的用户访问行为数据
-	 *
-	 * @param sqlContext
-	 * @param taskParam  任务参数
-	 * @return 行为数据RDD
-	 */
-	private static JavaRDD<Row> getActionRDDByDateRange(SQLContext sqlContext, JSONObject taskParam) {
-		String startDate = ParamUtils.getParam(taskParam, Constants.PARAM_START_DATE);
-		String endDate = ParamUtils.getParam(taskParam, Constants.PARAM_END_DATE);
-		String sql = "select * from user_visit_action " +
-				"where date >='" + startDate + "' and date <= '" + endDate + "'";
-		DataFrame actionDF = sqlContext.sql(sql);
-		return actionDF.javaRDD();
-	}
-
 	/**
 	 * 对行为数据按照session粒度进行聚合
 	 *
 	 * @param sessionId2ActionRDD 行为数据，一条数据为一次访问记录：一次搜索、下单或点击
 	 * @return Key为user_id方便与用户信息表JOIN，value为拼接的数据
 	 */
-	private static JavaPairRDD<String, String> aggregateBySessionId(JavaPairRDD<String, Row> sessionId2ActionRDD, SQLContext sqlContext) {
+	private static JavaPairRDD<String, String> aggregateBySessionId(JavaSparkContext sc, JavaPairRDD<String, Row> sessionId2ActionRDD, SQLContext sqlContext) {
 		//fix 重构
 //		JavaPairRDD<String, Row> sessionId2ActionRDD = actionRDD.mapToPair((PairFunction<Row, String, Row>) row -> {
 //			//第一个参数为函数输入，第二个和第三个为输出Tuple
@@ -312,6 +272,37 @@ public class UserVisitSessionAnalysis {
 
 		//将session粒度聚合数据与用户信息JOIN
 		JavaPairRDD<Long, Tuple2<Row, String>> useridFullInfoRDD = userid2InfoRDD.join(userId2PartAggrInfoRDD);
+		/**
+		 * 这里就比较适合将reduce join转换为map join
+		 * userid2InfoRDD数据量一般很小，例如10万用户
+		 * userId2PartAggrInfoRDD数据量可能很大，例如100万条
+		 */
+//		List<Tuple2<Long, Row>> userInfos = userid2InfoRDD.collect();
+//		Broadcast<List<Tuple2<Long, Row>>> userInfosBroadcast = sc.broadcast(userInfos);
+//		userId2PartAggrInfoRDD.mapToPair((PairFunction<Tuple2<Long, String>, String, String>) tuple2 -> {
+//			//用户信息
+//			List<Tuple2<Long, Row>> userInfoList = userInfosBroadcast.value();
+//			Map<Long, Row> userInfoMap = new HashMap<>();
+//			userInfoList.forEach(userInfo -> userInfoMap.put(userInfo._1, userInfo._2));
+//
+//			//获取当前用户对应的信息
+//			Row userInfoRow = userInfoMap.get(tuple2._1);
+//			String partAggrInfo = tuple2._2;
+//
+//			String sessionid = StringUtils.getFieldFromConcatString(partAggrInfo, "\\|", Constants.FIELD_SESSION_ID);
+//			int age = userInfoRow.getInt(3);
+//			String professional = userInfoRow.getString(4);
+//			String city = userInfoRow.getString(5);
+//			String sex = userInfoRow.getString(6);
+//
+//			String fullAggrInfo = partAggrInfo + "|"
+//					+ Constants.FIELD_AGE + "=" + age + "|"
+//					+ Constants.FIELD_PROFESSIONAL + "=" + professional + "|"
+//					+ Constants.FIELD_CITY + "=" + city + "|"
+//					+ Constants.FIELD_SEX + "=" + sex;
+//			return new Tuple2<>(sessionid, fullAggrInfo);
+//		});
+
 		//对join起来的数据进行拼接，并返回<sessionid, fullAggeInfo>格式
 		JavaPairRDD<String, String> sessionid2FullInfoRDD = useridFullInfoRDD.mapToPair((PairFunction<Tuple2<Long, Tuple2<Row, String>>, String, String>) tuple -> {
 			Row userInfoRow = tuple._2._1;
@@ -329,6 +320,68 @@ public class UserVisitSessionAnalysis {
 					+ Constants.FIELD_SEX + "=" + sex;
 			return new Tuple2<>(sessionid, fullAggrInfo);
 		});
+
+		/**
+		 * sample采样倾斜key单独进行join
+		 */
+//		JavaPairRDD<Long, String> sampledRDD = userId2PartAggrInfoRDD.sample(false, 0.3, 41);
+//		final Long skewedUserId = sampledRDD
+//				.mapToPair((PairFunction<Tuple2<Long, String>, Long, Long>) tuple2 -> new Tuple2<>(tuple2._1, 1L))
+//				.reduceByKey((Function2<Long, Long, Long>) (v1, v2) -> v1 + v2)
+//				.mapToPair((PairFunction<Tuple2<Long, Long>, Long, Long>) tuple2 -> new Tuple2<>(tuple2._2, tuple2._1))
+//				.sortByKey(false)
+//				.take(1).get(0)._2;
+//
+//		JavaPairRDD<Long, String> skewedRDD = userId2PartAggrInfoRDD.filter((Function<Tuple2<Long, String>, Boolean>) v1 -> v1._1.equals(skewedUserId));
+//
+//		JavaPairRDD<Long, String> commonRDD = userId2PartAggrInfoRDD.filter((Function<Tuple2<Long, String>, Boolean>) v1 -> !v1._1.equals(skewedUserId));
+//
+//		JavaPairRDD<String, Row> skewedUserid2RDD = userid2InfoRDD
+//				.filter((Function<Tuple2<Long, Row>, Boolean>) tuple -> tuple._1.equals(skewedUserId))
+//				.flatMapToPair((PairFlatMapFunction<Tuple2<Long, Row>, String, Row>) tuple -> {
+//					Random rand = new Random();
+//					List<Tuple2<String, Row>> list = new ArrayList<>();
+//					for (int i = 0; i < 100; i++) {
+//						int prefix = rand.nextInt(100);
+//						list.add(new Tuple2<>(prefix + "_" + tuple._1, tuple._2));
+//					}
+//					return list;
+//				});
+//
+//		JavaPairRDD<Long, Tuple2<String, Row>> joinedRDD1 = skewedRDD
+//				.mapToPair((PairFunction<Tuple2<Long, String>, String, String>) tuple2 -> {
+//					Random rand = new Random();
+//					int prefix = rand.nextInt(100);
+//					return new Tuple2<String, String>(prefix + "_" + tuple2._1, tuple2._2);
+//				})
+//				.join(skewedUserid2RDD)
+//				.mapToPair((PairFunction<Tuple2<String, Tuple2<String, Row>>, Long, Tuple2<String, Row>>) tuple2 -> {
+//					long userid = Long.valueOf(tuple2._1.split("_")[1]);
+//					return new Tuple2<>(userid, tuple2._2);
+//				});
+//
+//		JavaPairRDD<Long, Tuple2<String, Row>> joinedRDD2 = commonRDD.join(userid2InfoRDD);
+//		JavaPairRDD<Long, Tuple2<String, Row>> unionRDD = joinedRDD1.union(joinedRDD2);
+//		unionRDD.mapToPair((PairFunction<Tuple2<Long, Tuple2<String, Row>>, String, String>) tuple -> {
+//			Row userInfoRow = tuple._2._2;
+//			String partAggrInfo = tuple._2._1;
+//			String sessionid = StringUtils.getFieldFromConcatString(partAggrInfo, "\\|", Constants.FIELD_SESSION_ID);
+//			int age = userInfoRow.getInt(3);
+//			String professional = userInfoRow.getString(4);
+//			String city = userInfoRow.getString(5);
+//			String sex = userInfoRow.getString(6);
+//
+//			String fullAggrInfo = partAggrInfo + "|"
+//					+ Constants.FIELD_AGE + "=" + age + "|"
+//					+ Constants.FIELD_PROFESSIONAL + "=" + professional + "|"
+//					+ Constants.FIELD_CITY + "=" + city + "|"
+//					+ Constants.FIELD_SEX + "=" + sex;
+//			return new Tuple2<>(sessionid, fullAggrInfo);
+//		});
+
+
+
+
 		return sessionid2FullInfoRDD;
 	}
 
@@ -735,7 +788,16 @@ public class UserVisitSessionAnalysis {
 		categoryIdRDD = categoryIdRDD.distinct();
 
 		//第三步：计算各品类的点击、下单和支付次数
-		//计算各个品类的点击次数
+		/**
+		 * 计算各个品类的点击次数
+		 * 这里完整数据进行过滤，多过滤出点击行为额数据，而点击行为只是总数据的
+		 * 一小部分，所以过滤以后的RDD每个分区数据量很可能不均匀。
+		 * 因此可以通过coalesce减少过滤后的分区数量，这里分区数量压缩为100个。
+		 *
+		 * 注意：由于这里是本地模式运行，不用去设置分区和并行度数量，而且对并
+		 * 行度和分区数据量有一定内部优化，所以本地测试时可以不适用coalesce算
+		 * 子。
+		 */
 		JavaPairRDD<String, Row> clickActionRDD = sessionid2DetailRDD.filter((Function<Tuple2<String, Row>, Boolean>) tuple -> {
 			Row detail = tuple._2;
 			Long clickCategoryId = null;
@@ -744,12 +806,32 @@ public class UserVisitSessionAnalysis {
 			} catch (Exception e) {
 			}
 			return clickCategoryId != null;
-		});
+		}).coalesce(100);
 		JavaPairRDD<Long, Long> clickCategoryIdRDD = clickActionRDD.mapToPair((PairFunction<Tuple2<String, Row>, Long, Long>) tuple -> {
 			long clickCategoryId = tuple._2.getLong(6);
 			return new Tuple2<>(clickCategoryId, 1L);
 		});
 		JavaPairRDD<Long, Long> clickCategoryId2CountRDD = clickCategoryIdRDD.reduceByKey((Function2<Long, Long, Long>) (v1, v2) -> v1 + v2);
+		//数据倾斜解决方案四：随机Key实现双重聚合
+		/** 第一步：给每个Key打一个随机数*/
+		clickCategoryIdRDD.mapToPair((PairFunction<Tuple2<Long, Long>, String, Long>) tuple2 -> {
+			Random rand = new Random();
+			int prefix = rand.nextInt(10);
+			return new Tuple2<String, Long>(prefix + "_" + tuple2._2, tuple2._2);
+		})
+				/** 第二步：局部聚合*/
+				.reduceByKey((Function2<Long, Long, Long>) (v1, v2) -> {
+					return v1 + v2;
+				})
+				/** 第三步：去除Key的前缀*/
+				.mapToPair((PairFunction<Tuple2<String, Long>, Long, Long>) tuple2 -> {
+					Long categoryId = Long.valueOf(tuple2._1.split("_")[1]);
+					return new Tuple2<>(categoryId, tuple2._2);
+				})
+				/** 第四步：全局聚合*/
+				.reduceByKey((Function2<Long, Long, Long>) (v1, v2) -> {
+					return v1 + v2;
+				});
 
 		//计算各个品类下单的次数
 		JavaPairRDD<String, Row> orderActionRDD = sessionid2DetailRDD.filter((Function<Tuple2<String, Row>, Boolean>) tuple -> {
@@ -960,7 +1042,7 @@ public class UserVisitSessionAnalysis {
 					}
 					return list;
 				})
-		//第四步：获取top10活跃session的明细数据，并写入数据库
+				//第四步：获取top10活跃session的明细数据，并写入数据库
 				.join(sessionid2DetailRDD)
 				.foreach((VoidFunction<Tuple2<String, Tuple2<String, Row>>>) tuple -> {
 					Row row = tuple._2._2;

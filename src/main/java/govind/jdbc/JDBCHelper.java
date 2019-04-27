@@ -42,9 +42,20 @@ public class JDBCHelper {
 	private LinkedList<Connection> datasource = new LinkedList<>();
 
 	private JDBCHelper() {
-		String url = ConfigurationManager.getProperty(Constants.JDBC_URL);
-		String user = ConfigurationManager.getProperty(Constants.JDBC_USER);
-		String password = ConfigurationManager.getProperty(Constants.JDBC_PASSWORD);
+		boolean isLocal = ConfigurationManager.getBoolean(Constants.SPARK_LOCAL);
+		String url;
+		String user;
+		String password;
+		if (isLocal) {
+			url = ConfigurationManager.getProperty(Constants.JDBC_URL);
+			user = ConfigurationManager.getProperty(Constants.JDBC_USER);
+			password = ConfigurationManager.getProperty(Constants.JDBC_PASSWORD);
+		} else {
+			url = ConfigurationManager.getProperty(Constants.JDBC_URL_PROD);
+			user = ConfigurationManager.getProperty(Constants.JDBC_USER_PROD);
+			password = ConfigurationManager.getProperty(Constants.JDBC_PASSWORD_PROD);
+		}
+
 		int datasourceSize = ConfigurationManager.getInteger(Constants.JDBC_DATASOURCE_SIZE);
 		//创建指定数量的数据库连接，并放入数据库连接池中
 		for (int i = 0; i < datasourceSize; i++) {

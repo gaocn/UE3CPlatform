@@ -4,6 +4,7 @@ package govind.constant;
  * 常量封装，避免硬编码提高代码的可维护性、灵活性。
  */
 public class Constants {
+
 	/**
 	 * 数据库配置相关常量
 	 */
@@ -14,13 +15,21 @@ public class Constants {
 	public static String JDBC_URL = "jdbc.url";
 	public static String JDBC_USER = "jdbc.user";
 	public static String JDBC_PASSWORD = "jdbc.password";
+	public static String JDBC_URL_PROD = "jdbc.url.prod";
+	public static String JDBC_USER_PROD = "jdbc.user.prod";
+	public static String JDBC_PASSWORD_PROD = "jdbc.password.prod";
 
 	/**
 	 * Spark作业相关常量
 	 */
 	public static String SPARK_APP_NAME_SESSION = "UserVisitSessionAnalysis";
+	public static String SPARK_APP_NAME_PAGE = "PageOneStepConvertRateAnalysis";
+
 	//运行模式：本地还是生产环境
 	public static String SPARK_LOCAL = "spark.local";
+	public static String SPARK_LOCAL_TASKID_SESSION = "spark.local.taskid.session";
+	public static String SPARK_LOCAL_TASKID_PAGE = "spark.local.taskid.page";
+
 
 	public static String FIELD_SESSION_ID = "sessionid";
 	public static String FIELD_SEARCH_KEYWORDS = "searchKeywords";
@@ -49,6 +58,8 @@ public class Constants {
 	public static String PARAM_SEX = "sex";
 	public static String PARAM_SEARCH_KEYOWORDS = "keywords";
 	public static String PARAM_CATEGORY_IDS = "categoryIds";
+
+	public static final String PARAM_TARGET_PAGE_FLOW = "pageFlow";
 
 	/**
 	 * session聚合统计的访问时长和访问步长

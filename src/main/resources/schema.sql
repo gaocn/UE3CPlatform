@@ -93,3 +93,14 @@ CREATE TABLE `task`
 ) ENGINE = InnoDB
   AUTO_INCREMENT = 0
   DEFAULT CHARSET = utf8;
+
+# 页面单跳转化率
+CREATE TABLE `page_convert_rate`
+(
+  #任务唯一标识
+  `task_id`     INT(11) NOT NULL ,
+  # 转化率，页面流中各个页面切片的转化率，以特定格式拼接起来，例如3,5=10%|5,7=20%
+  `convert_rate`   VARCHAR(255) DEFAULT NULL
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8;
+
