@@ -84,4 +84,7 @@ public class Constants {
 	public static String STEP_PERIOD_60 = "60";
 
 
+	//Streaming 应用程序配置
+	public static final String KAFKA_BOOTSTRAP_SERVERS="kafka.bootstrap.servers";
+	public static final String KAFKA_TOPICS="kafka.topics";
 }

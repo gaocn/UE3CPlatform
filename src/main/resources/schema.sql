@@ -31,18 +31,18 @@ drop table `session_random_extract`;
 
 CREATE TABLE `session_random_extract`
 (
-  `task_id`         INT(11) NOT NULL ,
-  `session_id`      VARCHAR(255) DEFAULT NULL,
-  `start_time`      VARCHAR(50)  DEFAULT NULL,
-  `search_keywords` VARCHAR(255) DEFAULT NULL,
-  `click_category_ids` VARCHAR(255)  DEFAULT NULL
+  `task_id`            INT(11) NOT NULL,
+  `session_id`         VARCHAR(255) DEFAULT NULL,
+  `start_time`         VARCHAR(50)  DEFAULT NULL,
+  `search_keywords`    VARCHAR(255) DEFAULT NULL,
+  `click_category_ids` VARCHAR(255) DEFAULT NULL
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8;
 
 -- 存储按照点击、下单和支付排序出来的top10品类数据
 CREATE TABLE `top10_category`
 (
-  `task_id`     INT(11) NOT NULL ,
+  `task_id`     INT(11) NOT NULL,
   `category_id` INT(11) DEFAULT NULL,
   `click_count` INT(11) DEFAULT NULL,
   `order_count` INT(11) DEFAULT NULL,
@@ -63,7 +63,7 @@ CREATE TABLE `top10_session`
 -- 用来存储随机抽取出来的session明细数据、top10品类的session明细数据
 CREATE TABLE `session_detail`
 (
-  `task_id`            INT(11) NOT NULL ,
+  `task_id`            INT(11) NOT NULL,
   `user_id`            INT(11)      DEFAULT NULL,
   `session_id`         VARCHAR(255) DEFAULT NULL,
   `page_id`            INT(11)      DEFAULT NULL,
@@ -98,41 +98,100 @@ CREATE TABLE `task`
 CREATE TABLE `page_convert_rate`
 (
   #任务唯一标识
-  `task_id`     INT(11) NOT NULL ,
+  `task_id`      INT(11) NOT NULL,
   # 转化率，页面流中各个页面切片的转化率，以特定格式拼接起来，例如3,5=10%|5,7=20%
-  `convert_rate`   VARCHAR(255) DEFAULT NULL
+  `convert_rate` VARCHAR(255) DEFAULT NULL
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8;
 
 CREATE TABLE `city_info`
 (
-  `city_id` INT(11) AUTO_INCREMENT,
+  `city_id`   INT(11) AUTO_INCREMENT,
   `city_name` VARCHAR(30) DEFAULT NULL,
-  `area` VARCHAR(30) DEFAULT NULL,
-  PRIMARY KEY(city_id)
+  `area`      VARCHAR(30) DEFAULT NULL,
+  PRIMARY KEY (city_id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8;
-INSERT INTO city_info values (null, '北京','华北');
-INSERT INTO city_info values (null, '上海','华东');
-INSERT INTO city_info values (null, '南京','华东');
-INSERT INTO city_info values (null, '广州','华南');
-INSERT INTO city_info values (null, '三亚','华南');
-INSERT INTO city_info values (null, '武汉','华中');
-INSERT INTO city_info values (null, '长沙','华中');
-INSERT INTO city_info values (null, '西安','西北');
-INSERT INTO city_info values (null, '成都','西南');
-INSERT INTO city_info values (null, '哈尔滨','东北');
+INSERT INTO city_info
+values (null, '北京', '华北');
+INSERT INTO city_info
+values (null, '上海', '华东');
+INSERT INTO city_info
+values (null, '南京', '华东');
+INSERT INTO city_info
+values (null, '广州', '华南');
+INSERT INTO city_info
+values (null, '三亚', '华南');
+INSERT INTO city_info
+values (null, '武汉', '华中');
+INSERT INTO city_info
+values (null, '长沙', '华中');
+INSERT INTO city_info
+values (null, '西安', '西北');
+INSERT INTO city_info
+values (null, '成都', '西南');
+INSERT INTO city_info
+values (null, '哈尔滨', '东北');
 
 # 各个区域热门品类Top3
 CREATE TABLE `area_top3_product`
 (
-  `task_id`     INT(11) NOT NULL ,
-  `area`   VARCHAR(255) DEFAULT NULL,
-  `area_level`   VARCHAR(255) DEFAULT NULL,
-  `product_id`   int(11) DEFAULT NULL,
-  `city_names`   VARCHAR(255) DEFAULT NULL,
-  `click_count`   int(11) DEFAULT NULL,
+  `task_id`        INT(11) NOT NULL,
+  `area`           VARCHAR(255) DEFAULT NULL,
+  `area_level`     VARCHAR(255) DEFAULT NULL,
+  `product_id`     int(11)      DEFAULT NULL,
+  `city_names`     VARCHAR(255) DEFAULT NULL,
+  `click_count`    int(11)      DEFAULT NULL,
   `product_name`   VARCHAR(255) DEFAULT NULL,
-  `product_status`   VARCHAR(255) DEFAULT NULL
+  `product_status` VARCHAR(255) DEFAULT NULL
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8;
+
+# 每天每个用户对某个广告的点击量
+CREATE TABLE `ad_user_click_count`
+(
+  `date`        VARCHAR(30) DEFAULT NULL,
+  `user_id`     INT(11)     DEFAULT NULL,
+  `ad_id`     INT(11)     DEFAULT NULL,
+  `click_count` INT(11)     DEFAULT NULL
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8;
+# 黑名单
+CREATE TABLE `ad_blacklist`
+(
+  `user_id` INT(11) DEFAULT NULL
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8;
+
+# 每天每个省份每个城市对某个广告的点击量
+CREATE TABLE `ad_stat`
+(
+  `date`        VARCHAR(30)  DEFAULT NULL,
+  `province`    VARCHAR(100) DEFAULT NULL,
+  `city`        VARCHAR(100) DEFAULT NULL,
+  `ad_id`     INT(11)      DEFAULT NULL,
+  `click_count` INT(11)      DEFAULT NULL
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8;
+# 每天每个省份Top3的广告点击量
+CREATE TABLE `ad_province_top3`
+(
+  `date`        VARCHAR(30)  DEFAULT NULL,
+  `province`    VARCHAR(100) DEFAULT NULL,
+  `ad_id`     INT(11)      DEFAULT NULL,
+  `click_count` INT(11)      DEFAULT NULL
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8;
+
+# 每天每个广告每分钟的点击量
+CREATE TABLE `ad_click_trend`
+(
+  `date`        VARCHAR(30)  DEFAULT NULL,
+  `hour`      VARCHAR(30) DEFAULT NULL,
+  `minute`    VARCHAR(30) DEFAULT NULL,
+  `ad_id`     INT(11)      DEFAULT NULL,
+  `click_count` INT(11)      DEFAULT NULL
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8;
+
+

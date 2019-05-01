@@ -1,0 +1,15 @@
+Caused by: java.lang.RuntimeException: Error while running command to get file permissions : java.io.IOException: (null) entry in command string: null ls -F D:\tmp\hive
+	at org.apache.hadoop.util.Shell$ShellCommandExecutor.execute(Shell.java:762)
+	at org.apache.hadoop.util.Shell.execCommand(Shell.java:859)
+java.lang.RuntimeException: java.io.IOException: (null) entry in command string: null chmod 0700 C:\Users\gaowenwen\AppData\Local\Temp\gaowenwen
+	at org.apache.hadoop.hive.ql.session.SessionState.start(SessionState.java:522)
+	at org.apache.spark.sql.hive.client.ClientWrapper.<init>(ClientWrapper.scala:204)
+
+在window下需要作如下配置：
+1、配置HADOOP_HOME环境变量；
+2、在resources资源目录下添加hdfs-site.mlx、core-site.xml、hive-site.xml文件；
+3、将hadoop.dll文件添加到C:\System32目录下
+
+
+Exceptionin thread "main" java.lang.UnsatisfiedLinkError:org.apache.hadoop.util.NativeCrc32.nativeCo
+这是由于hadoop.dll 版本问题，2.4之前的和自后的需要的不一样，需要选择正确的版本并且在 C：\windows\system32 上将其复制替换，注意版本注意位数

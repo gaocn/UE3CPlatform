@@ -99,7 +99,7 @@ public class AreaTop3ProductAnalysis {
 		generateTempAreaFullProductClickCountTable(sqlContext);
 
 		//9. 使用开窗函数获取各个区域内点击次数排名前3的热门商品
-		//JavaRDD<Row> areaTop3ProductRDD = getAreaTop3ProductTable(sqlContext);
+		JavaRDD<Row> areaTop3ProductRDD = getAreaTop3ProductTable(sqlContext);
 
 		//10. 将统计结果写入数据库
 		//persistAreaTop3Product(taskid, areaTop3ProductRDD);
@@ -235,6 +235,7 @@ public class AreaTop3ProductAnalysis {
 	 * 开窗函数的子查询中按照area进行分组，给每个分组内的数据，按照点击次数降
 	 * 序排列，打上一个组内的行号；紧接着外层查询中过滤出各个组内行号排名前3的
 	 * 的数据，就得到了每个区域Top3的
+	 * ROW_NUMBER窗口函数需要在Hive环境下运行
 	 */
 	private static JavaRDD<Row> getAreaTop3ProductTable(SQLContext sqlContext) {
 
